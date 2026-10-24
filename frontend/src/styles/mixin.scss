@@ -1,0 +1,101 @@
+@mixin clearfix {
+  &:after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+}
+
+@mixin actionBnt {
+  padding: 16px 0 16px 16px;
+  background: white;
+  border-top: 1px solid #c9ced5;
+}
+
+
+@mixin commonBtn ($boxType: block, $whichBtn :fitst) {
+  height: 32px;
+  padding: 0px 16px;
+  font-size: 14px;
+  line-height: 32px;
+  color: #fff;
+  background-color: #1890ff;
+  border-radius: 2px;
+  margin-left: 8px;
+  cursor: pointer;
+
+  @if $boxType==block {
+    display: inline-block;
+  }
+
+  // @if $whichBtn !=fitst {
+  //   margin-left: 16px;
+  // }
+
+}
+
+
+@mixin scrollBar {
+  // &::-webkit-scrollbar-track-piece {
+  //   background: #d3dce6;
+  // }
+
+  &::-webkit-scrollbar {
+    height: 18px;
+    width: 18px;
+  }
+
+
+  & ::-webkit-scrollbar-thumb {
+    height: 100px;
+  }
+
+  // &::-webkit-scrollbar-thumb {
+  //   background: #99a9bf;
+  //   border-radius: 20px;
+  // }
+}
+
+@mixin relative {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+@mixin pct($pct) {
+  width: #{$pct};
+  position: relative;
+  margin: 0 auto;
+}
+
+@mixin triangle($width, $height, $color, $direction) {
+  $width: $width/2;
+  $color-border-style: $height solid $color;
+  $transparent-border-style: $width solid transparent;
+  height: 0;
+  width: 0;
+
+  @if $direction==up {
+    border-bottom: $color-border-style;
+    border-left: $transparent-border-style;
+    border-right: $transparent-border-style;
+  }
+
+  @else if $direction==right {
+    border-left: $color-border-style;
+    border-top: $transparent-border-style;
+    border-bottom: $transparent-border-style;
+  }
+
+  @else if $direction==down {
+    border-top: $color-border-style;
+    border-left: $transparent-border-style;
+    border-right: $transparent-border-style;
+  }
+
+  @else if $direction==left {
+    border-right: $color-border-style;
+    border-top: $transparent-border-style;
+    border-bottom: $transparent-border-style;
+  }
+}

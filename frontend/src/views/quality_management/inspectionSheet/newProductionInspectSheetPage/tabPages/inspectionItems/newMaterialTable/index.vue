@@ -1,0 +1,575 @@
+<!--
+ * @Author: laidz laidz@yelinked.com
+ * @Date: 2024-09-02 16:14:19
+ * @LastEditors: laidz laidz@yelinked.com
+ * @LastEditTime: 2025-04-25 11:48:41
+ * @Description: 检验样次表格
+-->
+<template>
+  <div>
+    <el-table
+      id="dragTable"
+      ref="commonTable"
+      :data="tableData"
+      border
+      row-key="id"
+      style="width: 100%; border-bottom: unset !important"
+      :row-class-name="tableRowClassName"
+      :header-cell-style="headerCellStyle"
+      @row-click="handleRowClick"
+      @selection-change="handleSelectionChange"
+      @header-dragend="headerDragend"
+    >
+      <el-table-column type="selection" width="55" />
+      <el-table-column type="index" width="50" label="序号" />
+      <el-table-column v-for="(item, index) in tableColumn" :key="index" v-bind="item" :render-header="renderHeader">
+        <template slot-scope="scope">
+          <!-- 自定义插槽 -->
+          <template v-if="item.columnType === 'bodySlot' || item.columnType === 'slot'">
+            <slot :name="item.prop" :row="scope.row" :$index="scope.$index" />
+          </template>
+
+          <!-- map转换 -->
+          <template v-else-if="item.columnType === 'dataMap'">
+            {{ item.dataMap[scope.row[item.prop]] || '' }}
+          </template>
+          <!-- 格式化 -->
+          <template v-else-if="item.columnType === 'format'">
+            {{ item.formatFuc([scope.row[item.prop]]) }}
+          </template>
+          <template v-else>
+            {{ scope.row[item.prop] || (scope.row[item.prop] === 0 ? 0 : '') }}
+          </template>
+        </template>
+      </el-table-column>
+      <!-- 操作列 -->
+      <el-table-column
+        fixed="right"
+        class="last-column"
+        :render-header="renderActionColumn"
+      />
+    </el-table>
+
+    <MaterialColumn
+      v-if="isShowCustomColumn"
+      :column="materialColumn"
+      :check-column.sync="materialDialogCheck"
+      :style-modify="{ width: '280px' }"
+      @closeDialog="closeDialog"
+      @aginRenderColumn="aginRenderColumn"
+    />
+
+  </div>
+</template>
+<script>
+import { LIST } from './constant'
+import Sortable from 'sortablejs'
+import { decideConfig } from '@/api/quality-manage.js'
+import MaterialColumn from '@/views/quality_management/inspectionSheet/newComponents/material/materialColumn.vue'
+import { getColumnList, saveCurrentColumnList } from '@/api/column'
+import { v4 as uuidv4 } from 'uuid'
+
+export default {
+  components: { MaterialColumn },
+  props: {
+    tableData: {
+      type: Array,
+      default: () => []
+    },
+    isDrag: {
+      type: Boolean,
+      default: false
+    },
+    type: {
+      type: String,
+      default: 'edit'
+    },
+    currentRow: {
+      type: Object,
+      default: () => {}
+    },
+    // 整个检验项目的数据
+    checkoutProject: {
+      type: Object,
+      default: () => {}
+    },
+    // 该表格列操作权限路径
+    // 先默认展示
+    columnPermissionAction: {
+      type: String,
+      require: false,
+      default: () => 'sales.order:columnConfigAddMaterial'
+    }
+  },
+  data() {
+    return {
+      columns: LIST,
+      headerCellStyleDefault: {
+        background: '#F1F5FC',
+        color: '#333333',
+        'font-family': 'Source Han Sans CN',
+        'font-weight': '400'
+      },
+      sortable: null,
+      tableKey: 0,
+      isAllSelected: false,
+      reCheckValue: 0,
+      approveValue: 0,
+      // 列配置 start
+      isShowCustomColumn: false, // 是否展示选择 列字段 弹窗
+      materialColumn: [],
+      // 产品检验单-检验项目-列配置
+      modelType: 'productInspectionProductionItemColumn',
+      tableColumn: [],
+      loading: false,
+      materialDialogCheck: [], // 弹窗默认被勾选的元素
+      multipleList: [] // 列勾选的数据
+      // 列配置 end
+    }
+  },
+  computed: {
+    isAddType() {
+      return this.$route.name.includes('Add')
+    },
+    isEditType() {
+      return this.$route.name.includes('Edit')
+    },
+    isDetailType() {
+      return this.$route.name.includes('Detail')
+    }
+  },
+  watch: {
+    currentRow(val) {
+      if (val && Object.keys(val).length > 0) {
+        this.$refs.commonTable.setCurrentRow(val)
+      }
+    }
+  },
+  created() {
+    // this.columns = [...LIST]
+    // // 根据配置判定是否添加复核和核准列
+    // this.getDecideConfig()
+  },
+  mounted() {
+    // this.initSortable()
+
+    // 列配置 start
+    this.$nextTick(() => {
+      this.getMaterialColumn()
+    })
+    // 列配置 end
+  },
+  methods: {
+    // 判定为不合格时设置背景
+    tableRowClassName({ row }) {
+      // 获取当前行是否选中
+      // const isSelected = this.multipleList.find(item => item.id === row.id) !== undefined
+      const isSelected = this.multipleList.find(item => item.itemId === row.itemId) !== undefined
+
+      // 获取原有不合格状态
+      const isUnqualified = row.singleConclusion === 0
+
+      return [
+        isSelected ? 'highlight-row' : '',
+        isUnqualified ? 'unqualified-row' : ''
+      ].filter(c => c).join(' ')
+    },
+    // 设置表格列元素
+    aginRenderColumn(val, type) {
+      this.tableColumn = val
+      this.materialDialogCheck = val
+      this.saveColumnSetting(val, type)
+      this.closeDialog()
+    },
+    // 获取表格列数据
+    async getMaterialColumn() {
+      try {
+        this.loading = true
+        const param = { modelType: this.modelType }
+        const res = await getColumnList(param)
+        const { code, data } = res.data || {}
+        if (+code === 200) {
+          const tableFields = JSON.parse(JSON.stringify(LIST))
+          if (!data) {
+            this.handleDefaultColumn()
+          } else {
+            const { columnInformation } = data || {}
+            this.tableColumn = []
+            // 字符串和JSON 字符串
+            try {
+              // JSON 字符串
+              const arr = JSON.parse(columnInformation)
+              arr.forEach(el => {
+                tableFields.forEach(item => {
+                  if (el.code === item.code) {
+                    const child = {
+                      ...item,
+                      width: el.width || item.width
+                    }
+                    this.tableColumn.push(child)
+                  }
+                })
+              })
+              const list = arr.map(item => item.code)
+              const rest = tableFields.filter(item => {
+                return !list.includes(item.code)
+              })
+              this.handleTableColumnWidth()
+              this.materialColumn = this.tableColumn.concat(rest)
+            } catch (err) {
+              // ','字符串
+              const list = columnInformation.split(',')
+              list.forEach(el => {
+                tableFields.forEach(item => {
+                  if (el === item.code) {
+                    this.tableColumn.push(item)
+                  }
+                })
+              })
+              // 处理勾选字段
+              const rest = tableFields.filter(item => {
+                return !list.includes(item.code)
+              })
+              this.handleTableColumnWidth()
+              this.materialColumn = this.tableColumn.concat(rest)
+            }
+            this.materialDialogCheck = this.tableColumn
+          }
+          this.loading = false
+          this.$nextTick(() => {
+            this.$refs.tableTree?.doLayout()
+          })
+        }
+      } catch (err) {
+        const tableFields = JSON.parse(JSON.stringify(LIST))
+        this.tableColumn = tableFields
+        this.materialColumn = this.tableColumn
+        this.materialDialogCheck = this.tableColumn
+        console.log(err)
+      }
+    },
+    // 没有个人的列配置，再找默认的列配置，还是没有则用前端代码默认的
+    async handleDefaultColumn() {
+      const tableFields = JSON.parse(JSON.stringify(LIST))
+      const {
+        data: { code, data }
+      } = await getColumnList({ modelType: this.modelType, username: 'all' })
+
+      if (code === '200') {
+        if (data?.columnInformation?.length) {
+          const { columnInformation } = data || {}
+          this.tableColumn = []
+          // 字符串和JSON 字符串
+          try {
+            // JSON 字符串
+            const arr = JSON.parse(columnInformation)
+            arr.forEach(el => {
+              tableFields.forEach(item => {
+                if (el.code === item.code) {
+                  const child = {
+                    ...item,
+                    width: el.width || item.width
+                  }
+                  this.tableColumn.push(child)
+                }
+              })
+            })
+            const list = arr.map(item => item.code)
+            const rest = tableFields.filter(item => {
+              return !list.includes(item.code)
+            })
+            this.handleTableColumnWidth()
+            this.materialColumn = this.tableColumn.concat(rest)
+          } catch (err) {
+            // ','字符串
+            const list = columnInformation.split(',')
+            list.forEach(el => {
+              tableFields.forEach(item => {
+                if (el === item.code) {
+                  this.tableColumn.push(item)
+                }
+              })
+            })
+            // 处理勾选字段
+            const rest = tableFields.filter(item => {
+              return !list.includes(item.code)
+            })
+            this.handleTableColumnWidth()
+            this.materialColumn = this.tableColumn.concat(rest)
+          }
+          this.materialDialogCheck = this.tableColumn
+        } else {
+          this.tableColumn = tableFields
+          this.materialColumn = this.tableColumn
+          this.materialDialogCheck = this.tableColumn
+        }
+      } else {
+        this.tableColumn = tableFields
+        this.materialColumn = this.tableColumn
+        this.materialDialogCheck = this.tableColumn
+      }
+    },
+    // 保存列配置
+    async saveColumnSetting(list = [], type) {
+      try {
+        const result = list.map(item => {
+          return {
+            code: item.code,
+            width: item.width
+          }
+        })
+        const param = {
+          columnInformation: JSON.stringify(result),
+          modularType: this.modelType,
+          userName: type || this.$store.getters.userInfo.username
+        }
+        const res = await saveCurrentColumnList(param)
+        const { code } = res.data || {}
+        if (+code === 200) {
+          this.getMaterialColumn()
+        }
+        // 还要在调用一次个人的
+        if (type === 'all') {
+          const param = {
+            columnInformation: JSON.stringify(result),
+            modularType: this.modelType,
+            userName: this.$store.getters.userInfo.username
+          }
+          const res = await saveCurrentColumnList(param)
+          const { code } = res.data || {}
+          if (+code === 200) {
+            this.getMaterialColumn()
+          }
+        }
+      } catch (err) {
+        console.log(err)
+      }
+    },
+    // 处理表格列宽的问题
+    handleTableColumnWidth() {
+      const elementWidth = document.querySelector('.el-form').clientWidth || 0
+      const totalWidth = this.tableColumn.reduce((prev, next) => {
+        return prev + Number(next.width)
+      }, 0)
+      if (totalWidth < elementWidth) {
+        this.tableColumn = this.tableColumn.map(item => {
+          return {
+            ...item,
+            width: null,
+            id: uuidv4()
+          }
+        })
+      }
+    },
+    // 自定义操作列
+    renderActionColumn(h, { column }) {
+      const that = this
+      return h(
+        'div',
+        {
+          style: 'display:flex;align-item:center'
+        },
+        [
+          h('span', column.label),
+          h('i', {
+            class: 'el-icon-setting',
+            style:
+              'margin-left:0px;font-size: 18px; cursor: pointer;border-left:0',
+            // directives: [
+            //   {
+            //     name: 'permission',
+            //     value: { action: this.columnPermissionAction }
+            //   }
+            // ],
+            on: {
+              click: function() {
+                that.isShowCustomColumn = !that.isShowCustomColumn
+              }
+            }
+          })
+        ]
+      )
+    },
+    // 取消按钮关闭弹窗
+    closeDialog() {
+      this.isShowCustomColumn = false
+    },
+    // 判断送检单是否需要复核和核准
+    async getDecideConfig() {
+      const inspectMaterialProcess = this.checkoutProject?.inspectMaterialProcess
+      if (inspectMaterialProcess) {
+        this.reCheckValue = inspectMaterialProcess.existReview
+        this.approveValue = inspectMaterialProcess.existAuthorize
+      }
+
+      // const params = {
+      //   fullPathCode: 'quality.inspectSheetProcessConfiguration'
+      // }
+      // const { data } = await decideConfig(params)
+      // data?.data?.valueList.forEach(item => {
+      //   if (item.valueName === '送检单是否需要复核(单选)') {
+      //     this.reCheckValue = item.value
+      //   }
+      //   if (item.valueName === '送检单是否需要核准(单选)') {
+      //     this.approveValue = item.value
+      //   }
+      // })
+
+      // 有复核
+      // eslint-disable-next-line
+      if (this.reCheckValue === 1) {
+        this.columns.push(
+          {
+            prop: 'reviewResult',
+            label: '复核检测值',
+            minWidth: '140',
+            columnType: 'slot',
+            checked: true
+          },
+          {
+            prop: 'reviewConclusion',
+            label: '复核判定',
+            minWidth: '130',
+            columnType: 'slot',
+            checked: true
+          }
+        )
+      }
+      // 有核准
+      // eslint-disable-next-line
+      if (this.approveValue === 1) {
+        this.columns.push(
+          {
+            prop: 'authorizeResult',
+            label: '核准检测值',
+            minWidth: '140',
+            columnType: 'slot',
+            checked: true
+          },
+          {
+            prop: 'authorizeConclusion',
+            label: '核准判定',
+            minWidth: '130',
+            columnType: 'slot',
+            checked: true
+          }
+        )
+      }
+    },
+    changeItem(flag) {
+      const index = this.tableData.findIndex(item => item === this.currentRow)
+      const length = this.tableData.length
+      if (!length) return
+      switch (flag) {
+        case 'first':
+          if (index === 0) return
+          this.$emit('update:currentRow', this.tableData[0])
+          break
+        case 'previous':
+          if (index > 0) {
+            this.$emit('update:currentRow', this.tableData[index - 1])
+          }
+          break
+        case 'next':
+          if (index < length - 1) {
+            this.$emit('update:currentRow', this.tableData[index + 1])
+          }
+          break
+        case 'last':
+          if (index === length - 1) return
+          this.$emit('update:currentRow', this.tableData[length - 1])
+          break
+        default:
+          break
+      }
+    },
+    initSortable() {
+      const that = this
+      const tbody = document.querySelector(`#dragTable .el-table__body-wrapper tbody`)
+      this.sortable = new Sortable(tbody, {
+        sort: false,
+        animation: 150,
+        //  指定父元素下可被拖拽的子元素
+        draggable: '.el-table__row',
+        // handle: '.handle', // handle's class
+        handle: '.el-table__cell', // handle's class
+        onEnd: ({ newIndex, oldIndex }) => {
+          that.tableData.splice(newIndex, 0, that.tableData.splice(oldIndex, 1)[0])
+        }
+      })
+    },
+    handleRowClick(row) {
+      // 点击行时选中勾选框
+      this.$refs.commonTable.toggleRowSelection(row) // 点击行时选中勾选框
+
+      this.$emit('update:currentRow', row)
+      this.$emit('handleRowClick')
+    },
+    // 表格样式
+    headerCellStyle({ row, colunm, rowIndex, columnIndex }) {
+      if (rowIndex === 1) {
+        // 这里为了是将第二列的表头隐藏，就形成了合并表头的效果
+        return { display: 'none' }
+      }
+      return { ...this.headerCellStyleDefault }
+    },
+    renderHeader(h, { column }) {
+      if (column.type === 'select') {
+        return (
+          <el-checkbox
+            v-model={column.isAllSelected}
+            indeterminate={column.isAllSelected && !column.isAllSelected}
+            onChange={bol => this.toggleAllSelection(bol, column.property)}
+            disabled={this.isDetailType}
+          >
+            {column.label}
+          </el-checkbox>
+        )
+      }
+      return column.label
+    },
+    toggleAllSelection(bol, property) {
+      this.tableData.forEach((item, index) => {
+        item[property] = bol
+      })
+    },
+    headerDragend(newWidth, oldWidth, column, event) {
+      const currentColumn = column.property
+      console.log(currentColumn)
+      // if (currentColumn === 'productOrderNumber') {
+      //   this.setProductOrderNumberWidth = newWidth
+      //   localStorage.setItem('setProductOrderNumberWidth', newWidth)
+      // }
+      this.materialColumn.forEach(el => {
+        if (el.code === currentColumn) {
+          el['width'] = newWidth
+        }
+      })
+    },
+    handleSelectionChange(val) {
+      this.$emit('update:multipleList', val)
+      this.multipleList = val
+    }
+  }
+}
+</script>
+<style lang="scss" scoped>
+::v-deep .el-table__header .is-group tr:nth-last-child(1) {
+  display: none;
+}
+
+::v-deep .cell.el-tooltip {
+  width: initial !important;
+}
+::v-deep .el-table__body-wrapper {
+  overflow: auto !important;
+}
+ // 不合格时背景颜色
+ ::v-deep .el-table .unqualified-row {
+    color: red;
+    // background-color: #FFEDED  !important;
+  }
+  ::v-deep .el-table .highlight-row {
+    background-color: #e8f4ff !important; /* 高亮背景色 */
+  }
+</style>

@@ -1,0 +1,20 @@
+::v-deep .el-table .cell {
+    // padding-left: 0;
+    // padding-right: 5px;
+    padding: 0 3px !important;
+}
+
+
+::v-deep .el-table__header-wrapper {
+    height: 42px;
+    border-bottom: 1px solid #dfe6ec;
+}
+
+::v-deep .el-table td {
+    height: 42px;
+    padding: 0 5px;
+}
+
+::v-deep .el-table__header-wrapper thead th .cell {
+    padding-left: 8px !important;
+}

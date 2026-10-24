@@ -1,0 +1,50 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: instrument-extension-service
+  datasource:
+    url: ${DB_URL:jdbc:mysql://instrument-extension-mysql:3306/instrument_extension?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USER:instrument_app}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 8
+      minimum-idle: 1
+      connection-timeout: 5000
+      validation-timeout: 2000
+  flyway:
+    enabled: true
+    validate-on-migrate: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8411/auth/realms/edge}
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+app:
+  source-instance: ${SOURCE_INSTANCE:fanrui-main}
+  security:
+    enabled: ${APP_SECURITY_ENABLED:true}
+
+fanrui:
+  base-url: ${FANRUI_BASE_URL:http://localhost:8080/factory/v1}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,flyway
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: WARN

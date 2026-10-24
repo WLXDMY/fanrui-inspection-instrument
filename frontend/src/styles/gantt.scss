@@ -1,0 +1,215 @@
+.production-screen_gunter {
+  // 甘特图主表
+  .gantt-chart {
+    outline: none;
+    border-right: 1px solid #182a5b;
+    border-bottom: 1px solid #182a5b;
+    height: 100%;
+    // overflow: auto;
+  }
+  // 左侧列表区域
+  .gantt-leftbar {
+    background: #051648;
+  }
+  // 右侧表头（时间显示区域)
+  .gantt-timeline {
+    background: #010936;
+    margin-left: 0px !important;
+  }
+  // 右侧内容区域（线条）
+  .gantt-blocks {
+    // background: none;
+    // border-right: 1px solid#657CA8;
+    background-image: linear-gradient(#182a5b 1px, transparent 0),
+      linear-gradient(90deg, #182a5b 1px, transparent 0);
+    border-bottom: 1px solid #182a5b;
+  }
+  .gantt-block {
+    //   border-bottom: 1px solid#657CA8;
+  }
+  // 时间轴位置调整
+  .gantt-timeline-scale > div {
+    // border-right: 1px solid #182a5b;
+    position: relative;
+    display: flex;
+    font-size: 16px;
+    font-family: Source Han Sans CN;
+    font-weight: bold;
+    color: #18c2fc;
+  }
+  .gantt-timeline-scale > div:not(:first-child) {
+    text-indent: -5px;
+  }
+  // .gantt-timeline-scale > div::after {
+  //   width: 1px;
+  //   height: 5px;
+  //   position: absolute;
+  //   left: 0;
+  //   bottom: 0;
+  //   content: '';
+  //   background-color: #182a5b;
+  // }
+  // 时间标记线
+  .gantt-markline-area {
+    z-index: 2001;
+  }
+  // 日期格式
+  .gantt-timeline-day {
+    font-size: 16px;
+    font-family: Source Han Sans CN;
+    font-weight: bold;
+    color: #18c2fc;
+    border-bottom: 1px solid #182a5b;
+    border-right: 1px solid #182a5b;
+  }
+  // 左侧表格内容区域
+  .gantt-leftbar-wrapper {
+    outline: none;
+    background: none;
+  }
+  // 标题文字
+  .gutter-word-list {
+    position: absolute;
+    left: 0;
+    width: 400px;
+    font-size: 14px;
+    z-index: 2006;
+    .gutter-title-word {
+      color: white;
+    }
+    .gutter-actu-number {
+      color: #00FF99;
+      margin-left: 9px;
+    }
+    .gutter-plan-number {
+      color: #ffbc2c;
+      margin-left: 9px;
+    }
+  }
+  // 左侧树表格显示
+  .gutter-left-table {
+    height: 100%;
+    li {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      font-size: 16px;
+      font-family: Source Han Sans CN;
+      font-weight: 400;
+      color: #7bbcee;
+      border-bottom: 1px solid #182a5b;
+      p {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      p:nth-of-type(1) {
+        width: 30%;
+      }
+      p:nth-of-type(2) {
+        width: 10%;
+        span {
+          display: flex;
+          width: 23px;
+          height: 23px;
+          justify-content: center;
+          align-items: center;
+          border-radius: 50%;
+        }
+        // 已完成
+        .done {
+          border: 1px solid #1bbf31;
+          color: #1bbf31;
+        }
+        // 生产中
+        .production {
+          border: 1px solid #2adbff;
+          color: #2adbff;
+        }
+        // 待生产
+        .await {
+          border: 1px solid #ff9c07;
+          color: #ff9c07;
+        }
+      }
+      p:nth-of-type(3) {
+        width: 30%;
+      }
+      p:nth-of-type(4) {
+        width: 15%;
+      }
+      p:nth-of-type(5) {
+        width: 15%;
+      }
+    }
+  }
+  .gunter-header {
+    background: #010936;
+    display: flex;
+    font-size: 18px;
+    font-family: Source Han Sans CN;
+    font-weight: bold;
+    color: #18c2fc;
+    border-right: 1px solid #182a5b;
+    li {
+      list-style: none;
+    }
+    li:nth-of-type(1) {
+      width: 30%;
+    }
+    li:nth-of-type(2) {
+      width: 10%;
+    }
+    li:nth-of-type(3) {
+      width: 30%;
+    }
+    li:nth-of-type(4) {
+      width: 15%;
+    }
+    li:nth-of-type(5) {
+      width: 15%;
+    }
+  }
+  // 时间标记线
+  .gantt-markline {
+    background-color: #4bf3f9 !important;
+    .gantt-markline-label {
+      display: none;
+    }
+  }
+  .hidden-list {
+    .gutter-word-list {
+      top: 5px;
+    }
+  }
+  // 三角形文件
+  .father-triangle-right,
+  .triangle-right {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-top: 9px solid transparent;
+    border-left: 12px solid red;
+    border-bottom: 9px solid transparent;
+  }
+  .triangle-right {
+    border-left: 10px solid #f6b72d;
+  }
+  .triangle-left {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-top: 9px solid transparent;
+    border-right: 12px solid red;
+    border-bottom: 9px solid transparent;
+  }
+  .father-icon {
+    position: absolute;
+    left: 4px;
+    // top: 0px;
+  }
+}

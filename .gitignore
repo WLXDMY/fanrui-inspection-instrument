@@ -1,0 +1,29 @@
+# dependencies and builds
+frontend/node_modules/
+frontend/dist/
+frontend/dist-upload/
+backend/target/
+
+# local environments and credentials
+.env
+*.local
+frontend/.env.development.local
+**/target.env
+
+# logs and caches
+*.log
+logs/
+runtime/
+runtime-logs/
+coverage/
+.cache/
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# archives
+*.zip
+*.jar

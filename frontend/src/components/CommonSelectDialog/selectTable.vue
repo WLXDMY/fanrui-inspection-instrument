@@ -1,0 +1,215 @@
+<!-- 公共表格组件 column - 表头 noEmpty - 空数据容器  -->
+<!-- 公共配置属性，全继承element属性，额外的：
+ * @Author: xuqiuming
+ * @Date: 2022-6-18 19:10:19
+ * @LastEditTime: 2022-6-18 19:10:19
+ * @LastEditors: xuqiuming
+ * @Description: In User Settings Edit
+-->
+<template>
+  <div>
+    <el-table
+      ref="table"
+      class="flex-fill responsive-table"
+      :data="tableDataLocal"
+      v-bind="$attrs"
+      :header-cell-style="{
+        background: '#FAFAFA',
+        color: '#000000',
+        'font-family': 'Source Han Sans CN',
+        'font-size': '14px'}"
+      highlight-current-row
+      v-on="$listeners"
+    >
+      <template v-for="(item, index) in columnLocal">
+        <el-table-column
+          v-if="!item.type&& (!item.columnType || typeLists.includes(item.columnType))"
+          :key=" item.prop + index"
+          v-bind="{...item}"
+          :render-header="(h,{column})=>hdRrenderHeader(h,column,item)"
+        >
+          <!-- slotHeader - 自定义表头 -->
+          <template slot="header" slot-scope="scope">
+            <slot
+              v-if="item.columnType === 'slotHeader'"
+              :name="item.prop + 'Header'"
+              :row="scope.row"
+            />
+            <template v-else>
+              {{ item.label }}
+            </template>
+          </template>
+          <template slot-scope="scope">
+            <template v-if="!item.columnType">
+              {{
+                scope.row[item.prop] ||( scope.row[item.prop]=== 0? 0:'')
+              }}
+            </template>
+            <!-- 自定义插槽 -->
+            <slot
+              v-else-if="item.columnType === 'slot' || item.columnType === 'slotHeader'"
+              :name="item.prop"
+              :row="scope.row"
+              :$index="scope.$index"
+            />
+            <!-- map转换 -->
+            <template v-else-if="item.columnType === 'dataMap'">
+              {{
+                item.dataMap[scope.row[item.prop]] || ''
+              }}
+            </template>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="item.type "
+          :key="item.prop + index"
+          v-bind="{ ...item }"
+        />
+      </template>
+      <!-- 空数据插槽 -->
+      <div
+        v-if="!noEmpty"
+        slot="empty"
+        class=""
+      >
+        <div class="emptyBox">{{ '暂无数据' }}
+          <slot name="empty" />
+        </div>
+      </div>
+
+    </el-table>
+    <SearchBox ref="searchBox" :filter-box-info="filterBoxInfo" @hightCurrentIcon="hightCurrentIcon" @clearSingleHightIcon="clearSingleHightIcon" @resetIconHight="resetIconHight" />
+  </div>
+</template>
+
+<script>
+import SearchBox from './selectTableComs/searchBox.vue'
+export default {
+  components: { SearchBox },
+  props: {
+    tableData: {
+      type: Array,
+      default: () => []
+    },
+    column: {
+      type: Array,
+      default: () => []
+    },
+    noEmpty: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data() {
+    return {
+      tableDataLocal: [],
+      columnLocal: [],
+      typeLists: [ // 注册type类型
+        'slotHeader',
+        'slot',
+        'dataMap'
+      ],
+      // 筛选框
+      filterBoxInfo: {
+        type: '',
+        clientX: 0,
+        clientY: 0,
+        prop: ''
+      }
+    }
+  },
+  computed: {
+
+  },
+  watch: {
+    tableData: {
+      deep: true,
+      handler(val) {
+        this.tableDataLocal = val
+      },
+      immediate: true
+    },
+    column: {
+      deep: true,
+      handler(val) {
+        this.columnLocal = JSON.parse(JSON.stringify(val))
+      },
+      immediate: true
+    }
+  },
+  created() {},
+  mounted() {
+  },
+  methods: {
+    clearSingleHightIcon(prop) {
+      const index = this.columnLocal.findIndex(i => prop === i.prop)
+      if (index > -1) {
+        this.columnLocal[index].active = false
+      }
+    },
+    hightCurrentIcon(prop) {
+      const index = this.columnLocal.findIndex(i => prop === i.prop)
+      if (index > -1) {
+        this.columnLocal[index].active = true
+      }
+    },
+    resetIconHight() {
+      this.columnLocal.forEach(i => {
+        i.active = false
+      })
+    },
+    hdRrenderHeader(h, column, item) {
+      const { filterBoxType, label, prop, key = '', options = [], outSideKey = '' } = item
+      if (!filterBoxType) {
+        return h('span', {}, [h('span', {}, label)])
+      } else {
+        return h('span', {}, [
+          h('span', {}, label),
+          h('span',
+            { on: {
+              click: (e) => {
+                this.$refs.searchBox.showSearchBox()
+                const { clientX = 0, clientY = 0 } = e || {}
+                this.filterBoxInfo = {
+                  filterBoxType,
+                  clientX,
+                  clientY,
+                  prop,
+                  options,
+                  key,
+                  outSideKey
+                }
+              }
+            },
+            style: 'cursor:pointer'
+            },
+            [
+              h('svg-icon', {
+                props: {
+                  iconClass: 'filter',
+
+                  className: `${item.active ? 'icon-active' : ''}` + '  init-svg-icon'
+                }
+              })
+            ]
+          )
+        ])
+      }
+    }
+
+  }
+}
+</script>
+<style lang="scss" scoped>
+
+  /deep/ .el-table{
+  .icon-active {
+ color: #1890ff;
+
+}
+  }
+/deep/ .init-svg-icon {
+     width: 3em;
+    height: 1.2em;
+}
+</style>

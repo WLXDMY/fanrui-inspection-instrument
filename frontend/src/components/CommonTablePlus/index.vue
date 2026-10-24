@@ -1,0 +1,904 @@
+<!-- 公共表格组件 column - 表头 noEmpty - 空数据容器  -->
+<!-- 公共配置属性，全继承element属性，额外的：
+ * @Author: xuqiuming
+ * @Date: 2022-6-18 19:10:19
+ * @LastEditTime: 2022-6-18 19:10:19
+ * @LastEditors: xuqiuming
+ * @Description: In User Settings Edit
+-->
+<template>
+  <div class="table common-table">
+    <el-table
+      ref="table"
+      class="flex-fill responsive-table"
+      v-bind="$attrs"
+      :header-cell-style="{
+        background: '#F2F5FC',
+        color: '#181d1f',
+        'font-family': 'Source Han Sans CN',
+        'font-size': '13px',
+        'font-weight': '550'
+      }"
+      height="100%"
+      :row-style="{ height: '42px' }"
+      :header-row-style="{ height: '42px' }"
+      highlight-current-row
+      :cell-style="columnStyle"
+      v-on="$listeners"
+      @header-dragend="hdHeaderDragend"
+      @selection-change="hdSelectionChange"
+    >
+      <!-- 多选 -->
+      <template>
+        <el-table-column v-if="isSelection" type="selection" width="50" />
+      </template>
+      <!-- 行号 -->
+      <template>
+        <el-table-column v-if="isIndex" type="index" width="50" />
+      </template>
+      <template v-for="(item, index) in tableColumns">
+        <el-table-column
+          v-if="
+            !item.type &&
+              (!item.columnType || typeLists.indexOf(item.columnType) > -1)
+          "
+          :key="item._uniqueId"
+          v-bind="{ ...item }"
+          show-overflow-tooltip
+          :render-header="(h, { column }) => hdRrenderHeader(h, column, item)"
+        >
+          <!-- slotHeader - 自定义表头 -->
+          <template slot="header" slot-scope="scope">
+            <slot
+              v-if="
+                item.columnType === 'headerSlot' || item.columnType === 'slot'
+              "
+              :name="item.prop + 'Header'"
+              :row="scope.row"
+            />
+            <template v-else>
+              {{ item.label }}
+            </template>
+          </template>
+          <template slot-scope="scope">
+            <!-- 自定义插槽 -->
+            <template
+              v-if="
+                item.columnType === 'bodySlot' || item.columnType === 'slot'
+              "
+            >
+              <slot :name="item.prop" :row="scope.row" :$index="scope.$index" />
+            </template>
+
+            <!-- map转换 -->
+            <template v-else-if="item.columnType === 'dataMap'">
+              {{ item.dataMap[scope.row[item.prop]] || '' }}
+            </template>
+            <!-- 格式化 -->
+            <template v-else-if="item.columnType === 'format'">
+              {{ item.formatFuc([scope.row[item.prop]]) }}
+            </template>
+            <template v-else>
+              {{
+                scope.row[item.prop] || (scope.row[item.prop] === 0 ? 0 : '')
+              }}
+            </template>
+          </template>
+        </el-table-column>
+
+        <el-table-column
+          v-if="item.type"
+          :key="item.prop + index"
+          v-bind="{ ...item }"
+        />
+      </template>
+    </el-table>
+    <SearchBox
+      ref="searchBox"
+      :filter-box-info="filterBoxInfo"
+      @hightCurrentIcon="hightCurrentIcon"
+      @clearSingleHightIcon="clearSingleHightIcon"
+      @resetIconHight="resetIconHight"
+      @updateQueryParams="updateQueryParams"
+    />
+    <RightColumnsConfig
+      v-show="showRightColumnsConfig"
+      :show-right-columns-config="showRightColumnsConfig"
+      :right-columns="rightColumns"
+      @updateColumns="updateColumns"
+      @saveColumnsConfig="saveColumnsConfig"
+    />
+  </div>
+</template>
+
+<script>
+import request from '@/utils/request'
+import { getColumnList, saveCurrentColumnList } from '@/api/column.js'
+import { isExistApprove } from '@/api/examineApprove.js'
+import SearchBox from './searchBox.vue'
+import RightColumnsConfig from './rightColumnsConfig.vue'
+import { v4 as uuidv4 } from 'uuid'
+import store from '@/store'
+export default {
+  components: { SearchBox, RightColumnsConfig },
+  props: {
+    tableData: {
+      type: Array,
+      default: () => []
+    },
+    allComumns: {
+      type: [Array, Object],
+      require: true,
+      default: () => []
+    },
+
+    // 该表格列操作权限路径
+    columnPermissionAction: {
+      type: String,
+      require: false,
+      default: () => ''
+    },
+    isHasMaterialExtensionKeys: {
+      type: Boolean,
+      default: false
+    },
+    // 列配置字段
+    modelType: {
+      type: String,
+      default: ''
+    },
+    // 审批字段
+    approveType: {
+      type: String,
+      default: ''
+    },
+    noApproveNotShowPropColums: {
+      type: Array,
+      default: () => []
+    },
+    materialOrOrder: {
+      type: Object,
+      default: () => {}
+    },
+    showOperateLabel: { // 是否展示操作label
+      type: Boolean,
+      default: true
+    },
+    isIndex: {
+      type: Boolean,
+      default: false
+    },
+    isSelection: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data() {
+    return {
+      columnLocal: [],
+      typeLists: [
+        // 注册type类型
+        'headerSlot',
+        'bodySlot',
+        'slot',
+        'dataMap',
+        'format'
+      ],
+      modelTypeReally: '',
+      filterBoxInfo: {},
+      showRightColumnsConfig: false,
+      allTableConfigColumns: [],
+      tableColumns: [],
+      rightColumns: []
+    }
+  },
+  watch: {
+    // allComumns: {
+    //   deep: true,
+    //   async handler(newVal, oldValue) {
+
+    //   }
+    // },
+    materialOrOrder: {
+      deep: true,
+      immediate: true,
+      async handler(newValue, oldValue) {
+        // 如果是按单按物料形式
+        if (newValue && !Array.isArray(newValue)) {
+          const { btnType, isHasMaterialExtensionKeys, modelType } = newValue
+          this.modelTypeReally = modelType
+          if (btnType === 'material') {
+            this.getMaterialOrOrderColumnsConfig(
+              btnType,
+              isHasMaterialExtensionKeys
+            )
+          } else {
+            this.getMaterialOrOrderColumnsConfig(
+              btnType,
+              isHasMaterialExtensionKeys
+            )
+          }
+        }
+      }
+    },
+    allTableConfigColumns: {
+      deep: true,
+      handler(newVal, oldValue) {
+        const hasCheckedColumns = []
+        this.allTableConfigColumns.forEach(i => {
+          if (i?.checked) {
+            hasCheckedColumns.push({
+              ...i,
+              _uniqueId: uuidv4()
+            })
+          }
+        })
+        this.tableColumns = hasCheckedColumns
+      }
+    }
+  },
+  created() {
+    // 如果是数组则是普通形式
+    if (Array.isArray(this.allComumns)) {
+      this.modelTypeReally = this.modelType
+      this.getColumnsConfig()
+    }
+  },
+  mounted() {
+    const tableWrapper = document.getElementsByClassName(
+      'el-table__body-wrapper'
+    )[0]
+    tableWrapper.addEventListener('scroll', this.hdScrollbar)
+  },
+
+  methods: {
+    // 普通形式
+    async getColumnsConfig() {
+      // 获取是否有审批功能
+      const isHasApprove = await this.getIsExistApprove()
+      const columns = []
+      // 本地列配置
+      let allComumnsDeep = JSON.parse(JSON.stringify(this.allComumns))
+      // 特征参数 全局配置
+      const showSpecificParams = store.getters && store.getters.showSpecificParams
+
+      const {
+        data: { code, data, message }
+      } = await getColumnList({ modelType: this.modelTypeReally })
+      if (code === '200') {
+        // 如果后端保存了 列配置
+        if (this.modelType && data && data.columnInformation) {
+          const preSaveColumns = JSON.parse(data.columnInformation)
+          // 过滤掉
+
+          // 如果有物料扩展字段
+          if (this.isHasMaterialExtensionKeys) {
+            allComumnsDeep = await this.addExtensionKeysIntoLocalColumns(allComumnsDeep)
+            this.updateLocalColmnsByPreSaveColumns(columns, preSaveColumns, allComumnsDeep, showSpecificParams,
+              isHasApprove)
+            // 如果没有物料扩展字段
+          } else {
+            this.updateLocalColmnsByPreSaveColumns(
+              columns,
+              preSaveColumns,
+              allComumnsDeep,
+              showSpecificParams,
+              isHasApprove
+            )
+          }
+          // 如果后端没有保存列配置 （初始化）
+        } else {
+          // 如果有扩展字段
+          if (this.isHasMaterialExtensionKeys) {
+            allComumnsDeep = await this.addExtensionKeysIntoLocalColumns(
+              allComumnsDeep
+            )
+            console.log(allComumnsDeep, 'allComumnsDeep')
+            this.hdIsHasApproveOrAuxiliaryAttrColumnsConfig(
+              columns,
+              allComumnsDeep,
+              showSpecificParams,
+              isHasApprove
+            )
+          } else {
+            this.hdIsHasApproveOrAuxiliaryAttrColumnsConfig(
+              columns,
+              allComumnsDeep,
+              showSpecificParams,
+              isHasApprove
+            )
+          }
+        }
+      } else {
+        this.$notify({
+          title: '提示',
+          message: message || '获取列配置失败',
+          type: 'error',
+          duration: 2000
+        })
+      }
+      this.getRightColumns()
+    },
+    // 按单 按物料形式
+    async getMaterialOrOrderColumnsConfig(btnType, isHasMaterialExtensionKeys) {
+      // 获取是否有审批功能
+      const isHasApprove = await this.getIsExistApprove()
+      const columns = []
+      let allComumnsDeep = JSON.parse(JSON.stringify(this.allComumns[btnType]))
+
+      // 特征参数 全局配置
+      const showSpecificParams =
+        store.getters && store.getters.showSpecificParams
+      const {
+        data: { code, data, message }
+      } = await getColumnList({ modelType: this.modelTypeReally })
+      if (code === '200') {
+        // 如果后端保存了 列配置
+        if (this.modelType && data && data.columnInformation) {
+          const preSaveColumns = JSON.parse(data.columnInformation)
+          // 如果有物料扩展字段
+          if (isHasMaterialExtensionKeys) {
+            allComumnsDeep = await this.addExtensionKeysIntoLocalColumns(
+              allComumnsDeep
+            )
+
+            this.updateLocalColmnsByPreSaveColumns(
+              columns,
+              preSaveColumns,
+              allComumnsDeep,
+              showSpecificParams,
+              isHasApprove
+            )
+
+            // 如果没有物料扩展字段
+          } else {
+            this.updateLocalColmnsByPreSaveColumns(
+              columns,
+              preSaveColumns,
+              allComumnsDeep,
+              showSpecificParams,
+              isHasApprove
+            )
+          }
+          // saveCurrentColumnList({ columnInformation: '', modularType: this.modelTypeReally })
+          // 如果没有列配置
+        } else {
+          // 如果有扩展字段
+          if (isHasMaterialExtensionKeys) {
+            allComumnsDeep = await this.addExtensionKeysIntoLocalColumns(
+              allComumnsDeep
+            )
+            this.hdIsHasApproveOrAuxiliaryAttrColumnsConfig(
+              columns,
+              allComumnsDeep,
+              showSpecificParams,
+              isHasApprove
+            )
+          } else {
+            this.hdIsHasApproveOrAuxiliaryAttrColumnsConfig(
+              columns,
+              allComumnsDeep,
+              showSpecificParams,
+              isHasApprove
+            )
+          }
+        }
+      } else {
+        this.$notify({
+          title: '提示',
+          message: message || '获取列配置失败',
+          type: 'error',
+          duration: 2000
+        })
+      }
+
+      this.getRightColumns()
+      this.$refs.searchBox.resetQuery()
+    },
+    getRightColumns() {
+      // 有左侧勾选列且有操作列
+      if (this.allTableConfigColumns[0].type === 'selection' && this.allTableConfigColumns[this.allTableConfigColumns.length - 1].prop === 'operate') {
+        this.rightColumns = this.allTableConfigColumns.slice(1, this.allTableConfigColumns.length - 1)
+        //  // 有左侧勾选列且没有右侧操作列
+      } else if (this.allTableConfigColumns[0].type === 'selection' && this.allTableConfigColumns[this.allTableConfigColumns.length - 1].prop !== 'operate') {
+        this.rightColumns = this.allTableConfigColumns.slice(1, this.allTableConfigColumns.length)
+        // 没有左侧勾选列有右侧操作列
+      } else if (this.allTableConfigColumns[0].type !== 'selection' && this.allTableConfigColumns[this.allTableConfigColumns.length - 1].prop === 'operate') {
+        this.rightColumns = this.allTableConfigColumns.slice(0, this.allTableConfigColumns.length - 1)
+        // 没有左侧勾选列没有右侧操作列
+      } else {
+        this.rightColumns = this.allTableConfigColumns.slice(0, this.allTableConfigColumns.length)
+      }
+    },
+    async addExtensionKeysIntoLocalColumns(allComumnsDeep) {
+      const {
+        data: { code, data: materialKeys = [], message }
+      } = await request({
+        url: `/api/material/filed/config/list/using`,
+        method: 'get'
+      })
+      if (code === '200') {
+        allComumnsDeep.splice(
+          allComumnsDeep.length - 1,
+          0,
+          ...materialKeys.map(i => ({
+            prop: i.fieldCode,
+            label: i.fieldName,
+            minWidth: '150',
+            filterBoxType: 'input',
+            checked: true,
+            outSideKey: 'materialFields'
+          }))
+        )
+
+        return allComumnsDeep
+      } else {
+        this.$notify({
+          title: '提示',
+          message: message || '获取物料扩展字段失败',
+          type: 'error',
+          duration: 2000
+        })
+
+        return []
+      }
+    },
+    updateLocalColmnsByPreSaveColumns(
+      columns = [],
+      preSaveColumns,
+      allComumnsDeep,
+      showSpecificParams,
+      isHasApprove
+    ) {
+      // preSaveColumns
+      const uniPreSaveColumns = []
+      preSaveColumns.forEach(i => {
+        const index = uniPreSaveColumns.findIndex(si => si.prop === i.prop)
+        if (index === -1) {
+          uniPreSaveColumns.push(i)
+        }
+      })
+      // 通过上次保存的列配置 ，把一些属性更新到本地列配置
+      uniPreSaveColumns.forEach(saveColumn => {
+        const index = allComumnsDeep.findIndex(i => i.prop === saveColumn.prop)
+        if (index > -1) {
+          columns.push({
+            ...allComumnsDeep[index],
+            minWidth: saveColumn.minWidth,
+            checked: saveColumn.checked
+          })
+        }
+      })
+
+      // 如果本地有新增的列配置 则增加新的列配置
+      uniPreSaveColumns.forEach(i => {
+        const index = columns.findIndex(si => si.prop === i.prop)
+        if (index === -1) {
+          // columns.push(i)
+          // columns
+          columns.splice(columns.length - 1, 0, i)
+        }
+      })
+
+      this.allTableConfigColumns = this.filterIsHasApproveOrAuxiliaryAttrColumns(columns, showSpecificParams, isHasApprove)
+    },
+    hdHeaderDragend(newWidth, oldWidth, column, event) {
+      const { property } = column
+      const index = this.allTableConfigColumns.findIndex(
+        i => i.prop === property
+      )
+      if (index > -1) {
+        this.allTableConfigColumns[index].minWidth = newWidth + ''
+      }
+    },
+    hdSelectionChange(val) {
+      this.$emit('selectionChange', val)
+    },
+    // 过滤是否有审批功能或者 是否有特征参数的列配置
+    hdIsHasApproveOrAuxiliaryAttrColumnsConfig(
+      columns = [],
+      allComumnsDeep,
+      showSpecificParams,
+      isHasApprove
+    ) {
+      columns = allComumnsDeep.filter(
+        item =>
+          item.prop !== 'auxiliaryAttr' ||
+          (item.prop === 'auxiliaryAttr' && showSpecificParams)
+      )
+      if (!isHasApprove) {
+        this.noApproveNotShowPropColums.forEach(i => {
+          const cIndex = columns.findIndex(si => si.prop === i)
+          if (cIndex > -1) {
+            columns.splice(cIndex, 1)
+          }
+        })
+      }
+      this.allTableConfigColumns = columns
+    },
+    filterIsHasApproveOrAuxiliaryAttrColumns(preSaveColumns, showSpecificParams, isHasApprove) {
+      const columns = preSaveColumns.filter(item => item.prop !== 'auxiliaryAttr' || (item.prop === 'auxiliaryAttr' && showSpecificParams))
+
+      if (!isHasApprove) {
+        this.noApproveNotShowPropColums.forEach(i => {
+          const cIndex = columns.findIndex(si => si.prop === i)
+          if (cIndex > -1) {
+            columns.splice(cIndex, 1)
+          }
+        })
+      }
+
+      return columns
+    },
+    // 获取是否有审批功能
+    async getIsExistApprove() {
+      if (this.approveType) {
+        const { data: { code, data, message }} = await isExistApprove(this.approveType)
+
+        if (code === '200') {
+          this.$emit('getIsApprove', data)
+          return data
+        } else {
+          this.$notify({
+            title: '提示',
+            message: message || 22,
+            type: 'error',
+            duration: 2000
+          })
+        }
+      } else {
+        return false
+      }
+    },
+    uuidv4,
+    // 确认当前 或者清空 或者重置查询
+    updateQueryParams(queryParams, type) {
+      this.$emit('getList', queryParams)
+    },
+    // 保存当前用户列配置
+    async saveColumnsConfig() {
+      const {
+        data: { code, message }
+      } = await saveCurrentColumnList({
+        columnInformation: JSON.stringify(this.allTableConfigColumns),
+        modularType: this.modelTypeReally
+      })
+      if (code === '200') {
+        this.$message({
+          type: 'success',
+          message: '保存成功！'
+        })
+      } else {
+        this.$message({
+          type: 'error',
+          message
+        })
+      }
+    },
+    hdScrollbar(e) {
+      this.$refs?.searchBox?.closeSearchBox()
+    },
+    hightCurrentIcon(prop) {
+      const index = this.tableColumns.findIndex(i => i.prop === prop)
+      if (index > -1) {
+        this.$set(this.tableColumns[index], 'active', true)
+      }
+    },
+    // 修改样式
+    columnStyle({ row, column, rowIndex, columnIndex }) {
+      if (column.type !== 'selection') {
+        return 'padding:0px;font-size:14px;border-right:0;border-top:0;border-left:0'
+      }
+    },
+    clearSingleHightIcon(prop) {
+      const index = this.tableColumns.findIndex(i => i.prop === prop)
+
+      if (index > -1) {
+        this.tableColumns[index].active = false
+      }
+    },
+    // 右侧列配置更新当前所有列的配置
+    updateColumns(newColumns) {
+      // 有左侧勾选列且有操作列
+      if (this.allTableConfigColumns[0].type === 'selection' && this.allTableConfigColumns[this.allTableConfigColumns.length - 1].prop === 'operate') {
+        this.allTableConfigColumns = [this.allTableConfigColumns[0], ...newColumns, this.allTableConfigColumns[this.allTableConfigColumns.length - 1]]
+        //  // 有左侧勾选列且没有右侧操作列
+      } else if (this.allTableConfigColumns[0].type === 'selection' && this.allTableConfigColumns[this.allTableConfigColumns.length - 1].prop !== 'operate') {
+        this.allTableConfigColumns = this.allTableConfigColumns = [this.allTableConfigColumns[0], ...newColumns]
+        // 没有左侧勾选列有右侧操作列
+      } else if (this.allTableConfigColumns[0].type !== 'selection' && this.allTableConfigColumns[this.allTableConfigColumns.length - 1].prop === 'operate') {
+        this.allTableConfigColumns = this.allTableConfigColumns = [...newColumns, this.allTableConfigColumns[this.allTableConfigColumns.length - 1]]
+        // 没有左侧勾选列没有右侧操作列
+      } else {
+        this.allTableConfigColumns = [...newColumns]
+      }
+
+      this.$nextTick(() => { this.$refs?.table?.doLayout() })
+    },
+    resetIconHight() {
+      this.tableColumns.forEach(i => {
+        i.active = false
+      })
+    },
+    showIconHight(prop) {
+      const index = this.tableColumns.findIndex(i => prop === i.prop)
+      if (index > -1) {
+        return this.tableColumns[index]['active']
+      }
+    },
+    async requestOptions(optionsRequestConfig = {}) {
+      let arr = []
+      const { url, method, labelKey, valueKey, showItems, specialHandle } =
+        optionsRequestConfig
+      try {
+        const {
+          data: { code, data, message }
+        } = await request({ url, method })
+
+        if (code === '200') {
+          let options
+          specialHandle ? options = this.hdSpecialOptions(url, data) : options = data.map(i => ({
+            value: i[valueKey] + '',
+            label: i[labelKey]
+          }))
+          showItems ? showItems.forEach(j => {
+            const index = options.findIndex(item => item.value === j)
+            if (index > -1) {
+              arr.push(options[index])
+            }
+          }) : arr = options
+          return arr
+        } else {
+          this.$message({
+            type: 'error',
+            message
+          })
+        }
+      } catch (error) {
+        console.error(error, 'error')
+      }
+    },
+    // 特殊处理枚举值 后端不规范
+    hdSpecialOptions(url, data) {
+      let specialOptions = []
+      switch (url) {
+        case '/ams/product/orders/all/grades':
+          for (var key in data) {
+            specialOptions.push({
+              label: data[key],
+              value: key
+            })
+          }
+          break
+        case '/api/grids/list':
+          specialOptions = data?.records?.map(i => ({
+            value: i.gcode,
+            label: i.gname
+          }))
+          break
+        default:
+          break
+      }
+      return specialOptions
+    },
+    hdRrenderHeader(h, column, item) {
+      const {
+        filterBoxType,
+        label,
+        prop,
+        key = '',
+        options,
+        outSideKey = '',
+        optionsRequestConfig
+      } = item
+      if (!filterBoxType && prop !== 'operate') {
+        return h(
+          'span',
+          {
+            style:
+              'display:flex;justify-content:space-between;padding-right:2px; text-align:left; white-space: nowrap;overflow: hidden;text-overflow: ellipsis;'
+          },
+          [label]
+        )
+      }
+      if (!filterBoxType && prop === 'operate') {
+        return h(
+          'span',
+          {
+            style:
+              'display:flex;justify-content:space-between;padding-right:2px; text-align:left;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;'
+          },
+          [
+            this.showOperateLabel ? h('span', label) : '',
+            h('i', {
+              class: 'el-icon-setting',
+              style: `margin-left:${this.showOperateLabel ? '100px' : '20px'};font-size: 18px; cursor: pointer;`,
+              directives: [
+                {
+                  name: 'permission',
+                  value: { action: this.columnPermissionAction }
+                }
+              ],
+              on: {
+                click: () => {
+                  this.showRightColumnsConfig = !this.showRightColumnsConfig
+                  this.$nextTick(() => {
+                    this.$refs?.table?.doLayout()
+                  })
+                }
+              }
+            })
+          ]
+        )
+      }
+      return h(
+        'span',
+        {
+          style:
+            'display: block;width: 100%;text-align:left; white-space: nowrap;overflow: hidden;text-overflow: ellipsis;'
+        },
+        [
+          h('span', {}, label),
+          h(
+            'span',
+            {
+              style: 'cursor: pointer;',
+              on: {
+                click: async e => {
+                  const { clientX = 0, clientY = 0 } = e || {}
+                  this.filterBoxInfo = {
+                    filterBoxType,
+                    clientX,
+                    clientY,
+                    prop,
+                    key,
+                    options: optionsRequestConfig ? await this.requestOptions(optionsRequestConfig) : options,
+                    outSideKey
+                  }
+                  this.$refs.searchBox.showSearchBox()
+                }
+              }
+            },
+            [
+              h('svg-icon', {
+                props: {
+                  iconClass: 'filter',
+                  className:
+                    `${this.showIconHight(prop) ? 'icon-active' : ''}` +
+                    ' init-svg-icon'
+                }
+              })
+            ]
+          )
+        ]
+      )
+    }
+  }
+}
+</script>
+<style lang="scss" scoped>
+@import '@/styles/mixin.scss';
+::v-deep .el-table {
+  .icon-active {
+    color: #1890ff;
+  }
+}
+.common-table {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+
+  ::v-deep .el-table td {
+    height: 35px;
+    padding: 0;
+  }
+
+  ::v-deep .el-table__body-wrapper {
+    @include scrollBar;
+  }
+  // ::v-deep .is-scrolling-left {
+  //   @include scrollBar
+  // }
+  ::v-deep .el-table__footer-wrapper {
+    .el-table__footer {
+      .has-gutter {
+        .cell {
+          padding-top: 0;
+          padding-bottom: 0;
+          width: 100%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+    }
+  }
+
+  ::v-deep .el-table__cell gutter {
+    border-top: 1px solid #dfe6ec;
+  }
+
+  ::v-deep .el-table__fixed-right {
+    // right: 18px!important;
+    border-right: 1px solid #dfe6ec;
+  }
+  ::v-deep .table-cell-allow {
+    background-color: #e6f3e9;
+  }
+  ::v-deep .table-cell-product {
+    background: #fee8bf;
+  }
+  ::v-deep .el-table__footer-wrapper {
+    height: 35px;
+    .has-gutter .cell {
+      margin-top: -10px;
+    }
+    .gutter {
+      border-top: 1px solid #dfe6ec;
+      background-color: #f1f1f1;
+      position: relative;
+    }
+    .is-hidden {
+      height: 35px;
+    }
+  }
+  ::v-deep .el-table__fixed-footer-wrapper {
+    .el-table__footer {
+      tr {
+        .el-table_1_column_57 {
+          height: 35px;
+        }
+      }
+    }
+  }
+  ::v-deep .el-table__header {
+    th {
+      padding: 2px 0 7px 0;
+      position: relative;
+      &::after {
+        content: '';
+        display: block;
+        width: 100%;
+        height: 1px;
+        background-color: #dfe6ec;
+        position: absolute;
+        bottom: 5px;
+        z-index: 9999999;
+      }
+    }
+  }
+  ::v-deep .el-table__header-wrapper {
+    height: 42px;
+    border-bottom: 1px solid #dfe6ec;
+  }
+
+  ::v-deep .el-table__footer-wrapper {
+    border-bottom: 1px solid #dfe6ec;
+  }
+  ::v-deep .el-table__header-wrapper thead th .cell {
+    padding-left: 8px;
+  }
+  ::v-deep .el-table__header-wrapper thead .el-table-column--selection .cell {
+    padding-left: 12px;
+  }
+  ::v-deep tbody .el-table-column--selection .cell {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/deep/ .init-svg-icon {
+  width: 15px;
+  height: 15px;
+}
+
+::v-deep .el-table .product-completed {
+  background: #e6f3e9;
+}
+::v-deep .el-table .product-pendding {
+  background: #fee8bf;
+}
+::v-deep .el-table .product-sdayujh {
+  background: #FFBCBC;
+}
+</style>

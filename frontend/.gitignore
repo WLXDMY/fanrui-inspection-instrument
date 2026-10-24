@@ -1,0 +1,9 @@
+dist/
+node_modules/
+.idea/
+.svn/
+.DS_Store
+target.env
+.history
+.env.development
+.nvmrc

@@ -1,0 +1,87 @@
+services:
+  instrument-extension-mysql:
+    image: mysql:8.0.32
+    container_name: instrument-extension-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: instrument_extension
+      MYSQL_USER: instrument_app
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
+    volumes:
+      - instrument_extension_mysql_data:/var/lib/mysql
+    networks:
+      - instrument_extension_net
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    mem_limit: 768m
+    cpus: 0.75
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  instrument-extension-service:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: instrument-extension-service:1.0.0
+    container_name: instrument-extension-service
+    restart: unless-stopped
+    depends_on:
+      instrument-extension-mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://instrument-extension-mysql:3306/instrument_extension?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USER: instrument_app
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      APP_SECURITY_ENABLED: ${APP_SECURITY_ENABLED:-true}
+      JWT_ISSUER_URI: ${JWT_ISSUER_URI:-http://host.docker.internal:8411/auth/realms/edge}
+      FANRUI_BASE_URL: ${FANRUI_BASE_URL:-http://host.docker.internal:8080/factory/v1}
+      SOURCE_INSTANCE: ${SOURCE_INSTANCE:-fanrui-main}
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai -Dfile.encoding=UTF-8
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-18091}:8080"
+    networks:
+      - instrument_extension_net
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS http://127.0.0.1:8080/actuator/health |
+          grep -q '"status":"UP"'
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 35s
+    mem_limit: 512m
+    cpus: 0.75
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  instrument_extension_net:
+    name: instrument_extension_net
+    driver: bridge
+
+volumes:
+  instrument_extension_mysql_data:
+    name: instrument_extension_mysql_data

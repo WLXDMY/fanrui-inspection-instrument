@@ -1,0 +1,343 @@
+<!--
+    *@Author:xuqiuming
+    * @Date: 2022-08-17 12:02:01
+ * @LastEditTime: 2024-03-05 09:23:20
+ * @LastEditors: xqm 13697256625@163.com
+    * @Description: 全部继承element ui弹窗
+-->
+<template>
+  <el-dialog
+    v-bind="$attrs"
+    width="70%"
+    :visible.sync="diaVisible"
+    class="common-select-dialog"
+    v-on="$listeners"
+  >
+    <SelectTable
+      ref="SelectTable"
+      v-loading="loading"
+      handle-selection-change
+      height="300"
+      :columns="tableColums"
+      :table-data="tableData"
+      @selection-change="handleSelectionChange"
+      @current-change="handleCurrentChange"
+    />
+    <Pagination
+      v-show="pagination.total > 0"
+      :total="pagination.total"
+      :page.sync="pagination.current"
+      :limit.sync="pagination.size"
+      @pagination="getList"
+    />
+    <template #footer>
+      <div class="bnts">
+        <el-button size="small" @click="cancel">取消</el-button>
+        <el-button type="primary" size="small" @click="confirm">
+          确认
+        </el-button>
+      </div>
+    </template>
+
+    <div class="reset" @click="reset">
+      <i class="el-icon-refresh-right" />
+    </div>
+  </el-dialog>
+</template>
+
+<script>
+import SelectTable from './selectTable.vue'
+import Pagination from '@/components/Pagination3'
+import request from '@/utils/request'
+import { eventBus } from '@/main.js'
+export default {
+  components: {
+    SelectTable,
+    Pagination
+  },
+  props: {
+    columnConfig: {
+      type: Array,
+      default: () => []
+    },
+
+    requestConfig: {
+      require: true,
+      type: Object,
+      default: () => ({}),
+      validator: value =>
+        Object.keys(value).includes('url') &&
+        Object.keys(value).includes('method')
+    },
+    visible: {
+      type: Boolean,
+      default: false
+    },
+    tableSpecialKey: {
+      type: String,
+      default: ''
+    },
+    extraParams: {
+      type: Object,
+      default: () => ({})
+    },
+    toggleSelections: {
+      // 回选项
+      type: Array,
+      default: () => []
+    },
+    toggleItemComparisonKey: {
+      type: String,
+      default: 'id'
+    },
+    isRequired: {
+      // 是否要必须选择一项
+      type: Boolean,
+      default: false
+    },
+    // 是否有物料扩展字段
+    isHasMaterialExtensionKeys: {
+      type: Boolean,
+      default: false
+    },
+    materialExtensionMultilevelkey: {
+      type: String,
+      default: 'materialFields'
+    },
+    arrayKey: {
+      type: String,
+      default: ''
+    }
+  },
+  data() {
+    return {
+      tableData: [],
+      pagination: {
+        current: 1,
+        size: 20,
+        total: 0
+      },
+      queryParams: {},
+      loading: false,
+      currnetRow: {}, // 当前点击选中的行,
+      hasSelectedRows: [],
+      tableColums: []
+    }
+  },
+  computed: {
+    diaVisible: {
+      get() {
+        return this.visible
+      },
+      set() {}
+    }
+  },
+  watch: {
+    columnConfig: {
+      immediate: true,
+      deep: true,
+      async handler(newValue, oldValue) {
+        if (this.isHasMaterialExtensionKeys) {
+          const {
+            data: { code, data: materialKeys = [], message }
+          } = await request({
+            url: `/api/material/filed/config/list/using`,
+            method: 'get'
+          })
+          if (code === '200') {
+            this.tableColums = newValue.concat(
+              materialKeys.map(i => ({
+                prop: i.fieldCode,
+                label: i.fieldName,
+                minWidth: '150',
+                // filterBoxType: 'input',
+                // checked: true,
+                // outSideKey: 'materialFields',
+                multilevelkey:
+                  this.materialExtensionMultilevelkey + '.' + i.fieldCode
+              }))
+            )
+          }
+        } else {
+          this.tableColums = newValue
+        }
+      }
+    }
+  },
+  created() {
+    this.getList()
+  },
+  mounted() {
+    eventBus.$on('getQueryParams', this.updateQueryParamsAndGetList)
+  },
+  beforeDestroy() {
+    eventBus.$off('getQueryParams', this.updateQueryParamsAndGetList)
+  },
+  methods: {
+    handleSelectionChange(rows) {
+      this.hasSelectedRows = rows
+    },
+    handleCurrentChange(row) {
+      this.currnetRow = row
+    },
+    cancel() {
+      console.log(22)
+      this.$emit('cancel')
+    },
+    reset() {
+      eventBus.$emit('resetQuery')
+    },
+    confirm() {
+      const isSelects = this.columnConfig.find(i => i.type === 'selection')
+      if (!isSelects && Object.keys(this.currnetRow).length === 0) {
+        return this.$notify({
+          title: '提示',
+          message: '请至少选择一项',
+          type: 'warning',
+          duration: 1000
+        })
+      } else if (!isSelects && Object.keys(this.currnetRow).length > 0) {
+        this.$emit('confirm', JSON.parse(JSON.stringify(this.currnetRow)))
+      } else if (
+        this.isRequired &&
+        isSelects &&
+        this.hasSelectedRows.length === 0
+      ) {
+        return this.$notify({
+          title: '提示',
+          message: '请至少选择一项',
+          type: 'warning',
+          duration: 1000
+        })
+      } else if (!this.isRequired && isSelects) {
+        console.log(this.hasSelectedRows, 'hasSelectedRows')
+        this.$emit('confirm', JSON.parse(JSON.stringify(this.hasSelectedRows)))
+      }
+    },
+    updateQueryParamsAndGetList(v) {
+      this.queryParams = JSON.parse(JSON.stringify(v))
+      this.pagination.current = 1
+      this.getList()
+    },
+
+    async getList() {
+      const { size, current } = this.pagination
+      const params = { size, current, ...this.queryParams, ...this.extraParams }
+      const { url, method } = this.requestConfig
+      let config
+      if (method === 'get') {
+        config = Object.assign({}, { url, method, params })
+      } else if (method === 'post') {
+        config = Object.assign({}, { url, method, data: params })
+      }
+
+      this.loading = true
+      try {
+        const {
+          data: {
+            code,
+            message,
+            data: { total = 0, records = [] }
+          }
+        } = await request(config)
+        if (code === '200') {
+          let listData = []
+          if (this.arrayKey) {
+            listData = records.map(i => ({ ...i, ...i[this.arrayKey][0] }))
+          } else {
+            listData = records
+          }
+          this.tableData = listData.map(i => ({ ...this.hdItem(i) }))
+          this.$nextTick(() => {
+            this.tableData.forEach(i => {
+              this.toggleSelections.forEach(si => {
+                if (
+                  i[this.toggleItemComparisonKey] ===
+                  si[this.toggleItemComparisonKey]
+                ) {
+                  this.$refs['SelectTable'].$refs['table'].toggleRowSelection(
+                    i,
+                    true
+                  )
+                }
+              })
+            })
+          })
+          this.pagination.total = total
+        } else {
+          this.$notify({
+            title: '提示',
+            message: message || '服务异常',
+            type: 'error',
+            duration: 2000
+          })
+        }
+        this.loading = false
+      } catch (error) {
+        this.$notify({
+          title: '提示',
+          message: '服务异常',
+          type: 'error',
+          duration: 2000
+        })
+        this.loading = false
+      }
+    },
+
+    getValueByMultiLevelKey(obj = {}, path = '') {
+      const arr = path.split('.')
+      let v = ''
+      arr?.reduce((cur, key, index) => {
+        if (index === arr.length - 1) {
+          v = cur[key]
+        } else {
+          return cur[key]
+        }
+      }, obj)
+      return v
+    },
+    hdItem(row) {
+      this.columnConfig.forEach(i => {
+        if (i.multiLevelKey) {
+          row[i.prop] = this.getValueByMultiLevelKey(row, i.multiLevelKey)
+        }
+      })
+      return row
+    }
+  }
+}
+</script>
+
+<style lang="scss" scoped>
+/deep/ .el-dialog {
+  margin: 40px auto;
+  height: 500px;
+}
+/deep/ .el-dialog__body {
+  height: calc(100% - 54px);
+  padding-bottom: 60px;
+}
+/deep/ .el-table__body-wrapper {
+  height: calc(100% - 60px) !important;
+}
+/deep/ .el-dialog__header .el-dialog__headerbtn {
+  display: none;
+}
+/deep/ .el-dialog__footer {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 0);
+}
+.reset {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  font-size: 20px;
+  cursor: pointer;
+}
+.pagination-container {
+  bottom: 60px;
+}
+// .bnts
+</style>

@@ -1,0 +1,4 @@
+.collapse-transition {
+    transition: height .3s ease;
+    overflow: hidden;
+}

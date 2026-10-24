@@ -1,0 +1,235 @@
+.content-all {
+  display: flex;
+  // height: 100%;
+  height: 330px;
+  margin-top: 11px;
+
+  ::v-deep .el-table {
+    flex: 1;
+    overflow: auto;
+  }
+
+  ::v-deep .el-table .cell {
+    font-size: 12px;
+  }
+
+  .air-bubbles {
+    width: 331px;
+    height: 100%;
+    border: 1px solid #1890ff;
+    margin-left: 15px;
+    position: relative;
+
+    .left-triangle {
+      position: absolute;
+      left: -11px;
+      width: 0;
+      height: 0;
+    }
+
+    .content {
+      width: 95%;
+      margin: 0 auto;
+
+      p {
+        font-size: 14px;
+        font-family: Source Han Sans CN;
+        font-weight: 400;
+        color: #1890ff;
+        border-left: 4px solid #1890ff;
+        padding-left: 6px;
+      }
+
+      .footer-btn {
+        display: flex;
+        justify-content: flex-end;
+
+        button {
+          border: none;
+          padding: 7px 18px;
+          font-size: 14px;
+          font-family: Source Han Sans CN;
+          font-weight: 400;
+        }
+
+        button:nth-of-type(1) {
+          border: 1px solid #d9d9d9;
+          color: rgba(0, 0, 0, 0.85);
+          background: white;
+          margin-right: 20px;
+        }
+
+        button:nth-of-type(2) {
+          background: #1890ff;
+          color: white;
+        }
+      }
+
+      ::v-deep .el-date-editor.el-input {
+        width: 100%;
+      }
+
+      ::v-deep .el-select {
+        width: 100%;
+      }
+
+      ::v-deep .el-input--mini {
+        width: 100%;
+      }
+    }
+  }
+
+  .dialog-pagination {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  .dialog-action {
+    display: flex;
+    justify-content: center;
+    margin-top: 43px;
+
+    ::v-deep .el-button {
+      margin-right: 20px;
+    }
+  }
+
+  .mater-complete {
+    text-align: center;
+  }
+
+  .icon-list {
+    display: flex;
+    justify-content: flex-end;
+
+    .header-icon {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      position: relative;
+
+      img:nth-of-type(1) {
+        margin-right: 25px;
+      }
+    }
+  }
+
+  // 弹窗
+  .order-management_dialog_all {
+    position: fixed;
+    width: 220px;
+    height: 281px;
+    top: 220px;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #1890ff;
+    box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.16);
+    font-size: 14px;
+    font-family: Source Han Sans CN;
+    font-weight: 400;
+    padding-bottom: 36px;
+    z-index: 3000;
+    // overflow-y: auto;
+    // overflow-x: hidden;
+
+    p {
+      width: 100%;
+      margin-left: 21px;
+    }
+
+    .custom-column {
+      color: #333333;
+    }
+
+    .sorting {
+      transform: scale(0.8);
+      color: #999999;
+      margin-left: 0px;
+    }
+    .handle-group{
+      height: 176px;
+      overflow: auto;
+    }
+
+    ::v-deep .el-checkbox-group {
+      display: flex;
+      flex-direction: column;
+      margin-left: 21px;
+
+      .el-checkbox {
+        height: 28px;
+      }
+    }
+  }
+
+  .order-management_dialog_all:before {
+    box-sizing: content-box;
+    width: 0px;
+    height: 0px;
+    position: absolute;
+    top: -16px;
+    right: 41px;
+    padding: 0;
+    border-bottom: 8px solid #ffffff;
+    border-top: 8px solid transparent;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    display: block;
+    content: "";
+    z-index: 12;
+  }
+  .order-management_dialog_all:after {
+    box-sizing: content-box;
+    width: 0px;
+    height: 0px;
+    position: absolute;
+    top: -18px;
+    right: 40px;
+    padding: 0;
+    border-bottom: 9px solid #1890ff;
+    border-top: 9px solid transparent;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    display: block;
+    content: "";
+    z-index: 10;
+  }
+
+  // 状态
+  .finish {
+    display: block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+
+  .header-list-state {
+    display: flex;
+    align-items: center;
+    span{
+      display: block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+  }
+
+  .finish {
+    background: #52C41A;
+  }
+
+  .create {
+    background: #1890FF;
+  }
+
+  .cancel {
+    background: #8B96A3;
+  }
+
+  .down {
+    background: #03E2E2;
+  }
+}

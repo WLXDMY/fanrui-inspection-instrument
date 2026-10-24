@@ -1,0 +1,135 @@
+/*
+ * @Author: shunhua.liang
+ * @Date: 2022-05-10 14:16:24
+ * @LastEditors: chenzejie
+ * @LastEditTime: 2023-03-14 12:19:45
+ * @Description: 生产设备
+ */
+import { v4 as uuidv4 } from 'uuid'
+
+const DEVICE = [
+  {
+    id: uuidv4,
+    label: '设备编码',
+    code: 'deviceCode',
+    width: null,
+    minWidth: '180',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '设备名称',
+    code: 'deviceName',
+    width: null,
+    minWidth: '180',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '是否在线',
+    code: 'online',
+    width: null,
+    minWidth: '180',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '区域位置',
+    code: 'address',
+    width: null,
+    minWidth: '180',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '是否支持云台控制',
+    code: 'supportControl',
+    width: null,
+    minWidth: '180',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '设备负责人',
+    code: 'magNickname',
+    width: null,
+    minWidth: '180',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '备注',
+    code: 'remark',
+    width: null,
+    minWidth: '180',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '创建人',
+    code: 'createByName',
+    width: null,
+    minWidth: '',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '创建时间',
+    code: 'createTime',
+    width: null,
+    minWidth: '160',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '更新人',
+    code: 'updateByName',
+    width: null,
+    minWidth: '',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  },
+  {
+    id: uuidv4,
+    label: '更新时间',
+    code: 'updateTime',
+    width: null,
+    minWidth: '160',
+    showOverflowTooltip: true,
+    type: null,
+    fixed: null,
+    class: 'handle' // 这个属性决定是否允许拖动
+  }
+
+]
+
+export { DEVICE }

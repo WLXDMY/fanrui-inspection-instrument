@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+      }
+
+      .cls-2 {
+        fill: currentColor;
+      }
+    </style>
+  </defs>
+  <g id="renyuan" transform="translate(-882 -124)">
+    <rect id="矩形_2484" data-name="矩形 2484" class="cls-1" width="16" height="16" transform="translate(882 124)"/>
+    <g id="组_4596" data-name="组 4596" transform="translate(883 126)">
+      <g id="组_18" data-name="组 18" transform="translate(0 0)">
+        <path id="路径_17" data-name="路径 17" class="cls-2" d="M773.678,1013.417a.437.437,0,0,0,.429-.444v-2.521a2.837,2.837,0,0,0-2.782-2.882h-3.978a2.837,2.837,0,0,0-2.782,2.882v2.521a.429.429,0,1,0,.858,0v-2.521a1.962,1.962,0,0,1,1.924-1.994h3.978a1.962,1.962,0,0,1,1.924,1.994v2.521A.437.437,0,0,0,773.678,1013.417Z" transform="translate(-764.565 -1001.071)"/>
+        <path id="路径_18" data-name="路径 18" class="cls-2" d="M811.093,871.529a2.853,2.853,0,1,0,2.676,2.848A2.769,2.769,0,0,0,811.093,871.529Zm0,4.809a1.963,1.963,0,1,1,1.841-1.959A1.9,1.9,0,0,1,811.093,876.338Z" transform="translate(-806.322 -871.529)"/>
+      </g>
+      <g id="组_19" data-name="组 19" transform="translate(1.702 0.497)">
+        <path id="路径_19" data-name="路径 19" class="cls-2" d="M966.5,930.987h2.372a.444.444,0,1,0,0-.888H966.5a.444.444,0,1,0,0,.888Z" transform="translate(-958.474 -927.797)"/>
+        <path id="路径_20" data-name="路径 20" class="cls-2" d="M969.757,881.938H966.5a.444.444,0,1,0,0,.889h3.258a.444.444,0,0,0,0-.889Z" transform="translate(-958.474 -881.938)"/>
+        <path id="路径_21" data-name="路径 21" class="cls-2" d="M966.5,979.146h3.83a.444.444,0,0,0,0-.888H966.5a.444.444,0,1,0,0,.888Z" transform="translate(-958.474 -973.656)"/>
+        <path id="路径_22" data-name="路径 22" class="cls-2" d="M800.635,1086.869a.445.445,0,0,0-.444.444v1.171a.444.444,0,0,0,.888,0v-1.171A.445.445,0,0,0,800.635,1086.869Z" transform="translate(-800.191 -1077.079)"/>
+        <path id="路径_23" data-name="路径 23" class="cls-2" d="M918.186,1087.313a.444.444,0,0,0-.888,0v1.171a.444.444,0,0,0,.888,0Z" transform="translate(-911.867 -1077.079)"/>
+      </g>
+    </g>
+  </g>
+</svg>
